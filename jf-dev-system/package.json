@@ -1,0 +1,60 @@
+{
+  "name": "jf-dev-sistema-gestao-agendamento",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Sistema Inteligente de Gestão e Agendamento — desenvolvido pela JF Dev",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:create-admin": "tsx prisma/create-admin.ts",
+    "db:studio": "prisma studio",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "next": "15.2.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.6.3",
+    "@types/node": "^20.16.11",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "@prisma/client": "^5.20.0",
+    "prisma": "^5.20.0",
+    "bcryptjs": "^2.4.3",
+    "@types/bcryptjs": "^2.4.6",
+    "jose": "^5.9.4",
+    "zod": "^3.23.8",
+    "dotenv": "^16.4.5",
+    "framer-motion": "^11.11.9",
+    "three": "^0.168.0",
+    "@types/three": "^0.168.0",
+    "@react-three/fiber": "^8.17.10",
+    "@react-three/drei": "^9.114.3",
+    "recharts": "^2.13.0",
+    "lucide-react": "^0.451.0",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.5.3",
+    "tailwindcss": "^3.4.13",
+    "postcss": "^8.4.47",
+    "autoprefixer": "^10.4.20",
+    "tailwindcss-animate": "^1.0.7",
+    "tsx": "^4.19.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1",
+    "eslint-config-next": "15.2.4"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}

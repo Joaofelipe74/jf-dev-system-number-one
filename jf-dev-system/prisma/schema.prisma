@@ -1,0 +1,255 @@
+// ============================================================================
+// JF Dev — Sistema de Gestão e Agendamento
+// Schema do banco de dados.
+//
+// CORREÇÃO DESTA AUDITORIA: o schema usava SQLite mesmo como "preparado
+// para produção" — a auditoria pediu explicitamente um banco Postgres real
+// (Supabase), com migrations versionadas. O provider abaixo agora é
+// "postgresql" definitivamente; não há mais um modo "SQLite de
+// desenvolvimento" — desenvolver localmente requer um Postgres real (ver
+// README, seção de instalação — inclui como subir um Postgres local via
+// Docker em segundos, sem precisar de uma conta Supabase para isso).
+//
+// Duas mudanças estruturais importantes em relação à versão anterior:
+//
+// 1. `onDelete: Restrict` (em vez de `Cascade`) nas relações de
+//    `Appointment` com `Client`, `Professional` e `Service`: excluir um
+//    cliente, profissional ou serviço que tenha agendamentos (histórico)
+//    agora é REJEITADO pelo próprio banco, em vez de apagar o histórico em
+//    cascata. A rota de API já trata essa rejeição como um erro 409
+//    amigável ("existem agendamentos vinculados") — o comportamento
+//    esperado é desativar (`isActive = false`) em vez de excluir quando já
+//    existe histórico.
+// 2. Uma constraint de exclusão (`EXCLUDE USING gist`, via a extensão
+//    `btree_gist`) garante, NO NÍVEL DO BANCO, que o mesmo profissional
+//    nunca tenha dois agendamentos "ativos" sobrepostos — a barreira final
+//    contra duas reservas simultâneas do mesmo horário, que nenhuma lógica
+//    de aplicação sozinha consegue garantir. Como o Prisma Schema Language
+//    não tem uma forma nativa de declarar `EXCLUDE CONSTRAINT`, ela é
+//    definida em SQL puro na migration
+//    `prisma/migrations/20260101000200_add_appointment_exclusion_constraint/migration.sql`
+//    — ver também `src/lib/db-retry.ts` e `src/lib/booking-rules.ts`.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// Conta de acesso administrativo. Criada exclusivamente pelo script
+/// `prisma/create-admin.ts` (nunca pelo seed de dados de demonstração —
+/// ver correção de segurança no README).
+model Profile {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("admin") // admin | staff (preparado para expansão)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("profiles")
+}
+
+/// Dados do negócio que usa o sistema (permite multi-tenant no futuro).
+model Business {
+  id        String   @id @default(uuid())
+  name      String
+  segment   String?
+  timezone  String   @default("America/Sao_Paulo")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  professionals Professional[]
+  clients       Client[]
+  services      Service[]
+  businessHours BusinessHour[]
+  settings      Setting?
+
+  @@map("businesses")
+}
+
+model Professional {
+  id          String   @id @default(uuid())
+  businessId  String
+  name        String
+  specialty   String
+  phone       String
+  email       String
+  isActive    Boolean  @default(true)
+  avatarColor String   @default("#00A8FF")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business             Business                  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  workingHours         ProfessionalWorkingHour[]
+  professionalServices ProfessionalService[]
+  /// onDelete: Restrict — um profissional com histórico de agendamentos não pode ser excluído (desative-o).
+  appointments         Appointment[]
+  /// onDelete: SetNull — remover o profissional generaliza um bloqueio dele para "todo o negócio" em vez de apagá-lo.
+  blockedTimes         BlockedTime[]
+
+  @@index([businessId])
+  @@map("professionals")
+}
+
+/// Dias/horários de trabalho de cada profissional (granularidade semanal).
+model ProfessionalWorkingHour {
+  id             String @id @default(uuid())
+  professionalId String
+  weekday        Int // 0 = domingo ... 6 = sábado
+  startTime      String // "09:00"
+  endTime        String // "18:00"
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@unique([professionalId, weekday])
+  @@map("professional_working_hours")
+}
+
+model Client {
+  id         String   @id @default(uuid())
+  businessId String
+  name       String
+  phone      String
+  email      String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business     Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  /// onDelete: Restrict — um cliente com histórico de agendamentos não pode ser excluído.
+  appointments Appointment[]
+  accessCodes  ClientAccessCode[]
+
+  @@index([businessId])
+  @@index([phone])
+  @@map("clients")
+}
+
+model Service {
+  id              String   @id @default(uuid())
+  businessId      String
+  name            String
+  description     String?
+  priceCents      Int
+  durationMinutes Int
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  business             Business              @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  professionalServices ProfessionalService[]
+  /// onDelete: Restrict — um serviço com histórico de agendamentos não pode ser excluído (desative-o).
+  appointments         Appointment[]
+
+  @@index([businessId])
+  @@map("services")
+}
+
+/// Tabela de junção N:N — quais profissionais realizam quais serviços.
+model ProfessionalService {
+  id             String @id @default(uuid())
+  professionalId String
+  serviceId      String
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  service      Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([professionalId, serviceId])
+  @@map("professional_services")
+}
+
+model Appointment {
+  id             String   @id @default(uuid())
+  businessId     String
+  clientId       String
+  professionalId String
+  serviceId      String
+  startsAt       DateTime
+  endsAt         DateTime
+  status         String   @default("pending") // pending | confirmed | completed | cancelled | no_show
+  priceCents     Int
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  client       Client       @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Restrict)
+  service      Service      @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@index([professionalId, startsAt])
+  @@index([businessId, startsAt])
+  @@index([clientId])
+  @@map("appointments")
+}
+
+/// Bloqueios manuais de agenda (folga, feriado, compromisso pessoal etc.).
+/// Quando professionalId é nulo, o bloqueio vale para todo o negócio.
+model BlockedTime {
+  id             String   @id @default(uuid())
+  businessId     String
+  professionalId String?
+  title          String
+  startsAt       DateTime
+  endsAt         DateTime
+  createdAt      DateTime @default(now())
+
+  professional Professional? @relation(fields: [professionalId], references: [id], onDelete: SetNull)
+
+  @@index([professionalId, startsAt])
+  @@map("blocked_times")
+}
+
+/// Horário de funcionamento geral do negócio, por dia da semana.
+model BusinessHour {
+  id         String  @id @default(uuid())
+  businessId String
+  weekday    Int // 0 = domingo ... 6 = sábado
+  isOpen     Boolean @default(true)
+  startTime  String  @default("09:00")
+  endTime    String  @default("19:00")
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, weekday])
+  @@map("business_hours")
+}
+
+/// Configurações gerais (uma linha por negócio) — preparado para expansão
+/// (ex.: integração futura com WhatsApp, feriados, política de cancelamento).
+model Setting {
+  id                      String  @id @default(uuid())
+  businessId              String  @unique
+  slotIntervalMinutes     Int     @default(30)
+  bookingWindowDays       Int     @default(30)
+  cancellationWindowHours Int     @default(2)
+  whatsappNumber          String?
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@map("settings")
+}
+
+/// Código de acesso de uso único para a Área do Cliente (correção de
+/// segurança — ver `src/services/client-access.service.ts`). Nunca guarda
+/// o código em texto puro, apenas seu hash HMAC.
+model ClientAccessCode {
+  id         String    @id @default(uuid())
+  clientId   String
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@map("client_access_codes")
+}
