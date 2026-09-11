@@ -6,12 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { apiFetch, ApiRequestError } from '@/lib/api-client';
 import { formatCurrency, formatDuration } from '@/lib/utils';
-import type { ServiceDTO, ProfessionalDTO } from '@/types';
+import type { BookingServiceDTO, BookingProfessionalDTO } from '@/types';
 import type { ClientDetails } from '@/components/booking/step-details';
 
 interface StepConfirmProps {
-  service: ServiceDTO;
-  professional: ProfessionalDTO;
+  service: BookingServiceDTO;
+  professional: BookingProfessionalDTO;
   slotIso: string;
   slotLabel: string;
   dateLabel: string;

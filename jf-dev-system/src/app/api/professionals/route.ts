@@ -14,8 +14,16 @@ export async function GET(request: NextRequest) {
   const publicOnly = request.nextUrl.searchParams.get('scope') === 'public';
 
   if (publicOnly && serviceId) {
+    const professionals = await listActiveProfessionalsForService(businessId, serviceId);
     return NextResponse.json({
-      professionals: await listActiveProfessionalsForService(businessId, serviceId),
+      // A rota pública não expõe telefone nem e-mail dos profissionais.
+      professionals: professionals.map(({ id, name, specialty, avatarColor, serviceIds }) => ({
+        id,
+        name,
+        specialty,
+        avatarColor,
+        serviceIds,
+      })),
     });
   }
 

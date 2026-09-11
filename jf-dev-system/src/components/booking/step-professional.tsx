@@ -1,35 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
-import { apiFetch } from '@/lib/api-client';
 import { getInitials, cn } from '@/lib/utils';
-import type { ProfessionalDTO } from '@/types';
-import { SkeletonRows } from '@/components/ui/skeleton';
+import type { BookingProfessionalDTO } from '@/types';
 import { EmptyState } from '@/components/ui/empty-state';
 
 interface StepProfessionalProps {
-  serviceId: string;
+  professionals: BookingProfessionalDTO[];
   selectedProfessionalId: string | null;
-  onSelect: (professional: ProfessionalDTO) => void;
+  onSelect: (professional: BookingProfessionalDTO) => void;
 }
 
-export function StepProfessional({ serviceId, selectedProfessionalId, onSelect }: StepProfessionalProps) {
-  const [professionals, setProfessionals] = useState<ProfessionalDTO[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setProfessionals(null);
-    apiFetch<{ professionals: ProfessionalDTO[] }>(
-      `/api/professionals?scope=public&serviceId=${serviceId}`
-    )
-      .then((data) => setProfessionals(data.professionals))
-      .catch(() => setError('Não foi possível carregar os profissionais agora.'));
-  }, [serviceId]);
-
-  if (error) return <EmptyState title="Ops, algo deu errado" description={error} />;
-  if (!professionals) return <SkeletonRows rows={3} />;
-
+export function StepProfessional({ professionals, selectedProfessionalId, onSelect }: StepProfessionalProps) {
   if (professionals.length === 0) {
     return (
       <EmptyState

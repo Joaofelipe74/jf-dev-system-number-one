@@ -4,7 +4,7 @@
   "private": true,
   "description": "Sistema Inteligente de Gestão e Agendamento — desenvolvido pela JF Dev",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -33,7 +33,7 @@
     "framer-motion": "^11.11.9",
     "jose": "^5.9.4",
     "lucide-react": "^0.451.0",
-    "next": "^15.5.25",
+    "next": "15.5.25",
     "postcss": "^8.4.47",
     "prisma": "^5.20.0",
     "react": "^18.3.1",
@@ -49,7 +49,7 @@
   },
   "devDependencies": {
     "eslint": "^8.57.1",
-    "eslint-config-next": "15.2.4"
+    "eslint-config-next": "15.5.25"
   },
   "engines": {
     "node": ">=18.18.0"

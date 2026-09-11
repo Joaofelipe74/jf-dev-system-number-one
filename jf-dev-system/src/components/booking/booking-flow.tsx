@@ -12,13 +12,11 @@ import { StepDetails, type ClientDetails } from '@/components/booking/step-detai
 import { StepConfirm } from '@/components/booking/step-confirm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { apiFetch } from '@/lib/api-client';
-import type { ServiceDTO, ProfessionalDTO } from '@/types';
-
-interface PublicBusinessInfo {
-  businessName: string;
-  whatsappNumber: string | null;
-  bookingWindowDays: number;
-}
+import type {
+  BookingBootstrapDTO,
+  BookingProfessionalDTO,
+  BookingServiceDTO,
+} from '@/types';
 
 const STEP_TITLES = [
   'Qual serviço você deseja?',
@@ -40,17 +38,18 @@ const STEP_DESCRIPTIONS = [
 
 export function BookingFlow() {
   const [step, setStep] = useState(1);
-  const [service, setService] = useState<ServiceDTO | null>(null);
-  const [professional, setProfessional] = useState<ProfessionalDTO | null>(null);
+  const [service, setService] = useState<BookingServiceDTO | null>(null);
+  const [professional, setProfessional] = useState<BookingProfessionalDTO | null>(null);
   const [date, setDate] = useState<string | null>(null);
   const [slot, setSlot] = useState<{ iso: string; label: string } | null>(null);
   const [client, setClient] = useState<ClientDetails>({ name: '', phone: '', email: '', notes: '' });
-  const [businessInfo, setBusinessInfo] = useState<PublicBusinessInfo | null>(null);
+  const [bootstrap, setBootstrap] = useState<BookingBootstrapDTO | null>(null);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiFetch<PublicBusinessInfo>('/api/public/business-info')
-      .then(setBusinessInfo)
-      .catch(() => setBusinessInfo(null));
+    apiFetch<BookingBootstrapDTO>('/api/public/booking-bootstrap')
+      .then(setBootstrap)
+      .catch(() => setBootstrapError('Não foi possível carregar as opções agora. Tente novamente em instantes.'));
   }, []);
 
   function goBack() {
@@ -105,6 +104,8 @@ export function BookingFlow() {
           >
             {step === 1 && (
               <StepService
+                services={bootstrap?.services ?? null}
+                error={bootstrapError}
                 selectedServiceId={service?.id ?? null}
                 onSelect={(s) => {
                   setService(s);
@@ -116,7 +117,9 @@ export function BookingFlow() {
 
             {step === 2 && service && (
               <StepProfessional
-                serviceId={service.id}
+                professionals={(bootstrap?.professionals ?? []).filter((item) =>
+                  item.serviceIds.includes(service.id)
+                )}
                 selectedProfessionalId={professional?.id ?? null}
                 onSelect={(p) => {
                   setProfessional(p);
@@ -128,7 +131,7 @@ export function BookingFlow() {
             {step === 3 && (
               <StepDate
                 selectedDate={date}
-                windowDays={businessInfo?.bookingWindowDays}
+                windowDays={bootstrap?.bookingWindowDays}
                 onSelect={(d) => {
                   setDate(d);
                   setSlot(null);
@@ -168,9 +171,9 @@ export function BookingFlow() {
                 slotLabel={slot.label}
                 dateLabel={dateLabel}
                 client={client}
-                businessName={businessInfo?.businessName ?? ''}
+                businessName={bootstrap?.businessName ?? ''}
                 businessWhatsappLink={
-                  businessInfo?.whatsappNumber ? `https://wa.me/${businessInfo.whatsappNumber}` : null
+                  bootstrap?.whatsappNumber ? `https://wa.me/${bootstrap.whatsappNumber}` : null
                 }
                 onConflict={resetAfterConflict}
               />

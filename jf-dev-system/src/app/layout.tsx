@@ -5,6 +5,10 @@ import './globals.css';
 import { siteConfig } from '@/config/site';
 import { ToastProvider } from '@/components/ui/toast';
 
+// Mantém as funções dinâmicas próximas ao banco Supabase criado em São Paulo.
+// Fora da Vercel esta preferência é simplesmente ignorada pelo Next.js.
+export const preferredRegion = 'gru1';
+
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
 const sora = Sora({ subsets: ['latin'], variable: '--font-display', display: 'swap' });
 

@@ -1,29 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Clock, CheckCircle2 } from 'lucide-react';
-import { apiFetch } from '@/lib/api-client';
 import { formatCurrency, formatDuration } from '@/lib/utils';
-import type { ServiceDTO } from '@/types';
+import type { BookingServiceDTO } from '@/types';
 import { SkeletonRows } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { cn } from '@/lib/utils';
 
 interface StepServiceProps {
+  services: BookingServiceDTO[] | null;
+  error: string | null;
   selectedServiceId: string | null;
-  onSelect: (service: ServiceDTO) => void;
+  onSelect: (service: BookingServiceDTO) => void;
 }
 
-export function StepService({ selectedServiceId, onSelect }: StepServiceProps) {
-  const [services, setServices] = useState<ServiceDTO[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    apiFetch<{ services: ServiceDTO[] }>('/api/services?scope=public')
-      .then((data) => setServices(data.services))
-      .catch(() => setError('Não foi possível carregar os serviços agora. Tente novamente em instantes.'));
-  }, []);
-
+export function StepService({ services, error, selectedServiceId, onSelect }: StepServiceProps) {
   if (error) {
     return <EmptyState title="Ops, algo deu errado" description={error} />;
   }

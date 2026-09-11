@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { getDefaultBusinessId } from '@/services/business.service';
+import { getDefaultBusinessIdentity } from '@/services/business.service';
 import { BLOCKING_APPOINTMENT_STATUSES, computeAvailableSlots, formatSlotLabel } from '@/lib/availability';
 import { weekdayOf, startOfBusinessDayUtc } from '@/lib/timezone';
 
@@ -30,9 +30,12 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const businessId = await getDefaultBusinessId();
-  const business = await prisma.business.findUnique({ where: { id: businessId } });
-  const timeZone = business?.timezone ?? 'America/Sao_Paulo';
+  // A identidade do único negócio é reutilizada durante a vida do processo.
+  // Isso remove duas consultas sequenciais que antes aconteciam em toda data
+  // escolhida (buscar o ID e, logo depois, buscar o mesmo negócio pelo ID).
+  const business = await getDefaultBusinessIdentity();
+  const businessId = business.id;
+  const timeZone = business.timezone;
   const weekday = weekdayOf(dateParam, timeZone);
   const dayStart = startOfBusinessDayUtc(dateParam, timeZone);
   const dayEnd = startOfBusinessDayUtc(dateParam, timeZone);
@@ -99,5 +102,8 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     slots: slots.map((slot) => ({ iso: slot.toISOString(), label: formatSlotLabel(slot, timeZone) })),
+  }, {
+    // Disponibilidade é dinâmica: não guardar horários ocupados em cache.
+    headers: { 'Cache-Control': 'private, no-store, max-age=0' },
   });
 }

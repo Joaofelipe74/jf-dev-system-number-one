@@ -48,6 +48,33 @@ export interface ProfessionalDTO {
   workingHours: ProfessionalWorkingHour[];
 }
 
+/** Dados mínimos e públicos usados no fluxo de agendamento. */
+export type BookingServiceDTO = Pick<
+  ServiceDTO,
+  'id' | 'name' | 'description' | 'priceCents' | 'durationMinutes' | 'professionalIds'
+>;
+
+/**
+ * Não inclui telefone nem e-mail do profissional: esses dados não precisam
+ * sair do servidor para que um cliente escolha quem fará o atendimento.
+ */
+export interface BookingProfessionalDTO {
+  id: string;
+  name: string;
+  specialty: string;
+  avatarColor: string;
+  serviceIds: string[];
+}
+
+/** Uma única resposta carrega tudo que as três primeiras etapas precisam. */
+export interface BookingBootstrapDTO {
+  businessName: string;
+  whatsappNumber: string | null;
+  bookingWindowDays: number;
+  services: BookingServiceDTO[];
+  professionals: BookingProfessionalDTO[];
+}
+
 export interface ClientDTO {
   id: string;
   name: string;

@@ -1,5 +1,42 @@
 import { prisma } from '@/lib/db';
 
+export interface DefaultBusinessIdentity {
+  id: string;
+  name: string;
+  timezone: string;
+}
+
+// O sistema desta versão trabalha com um único negócio. Guardamos sua
+// identidade durante a vida do processo para não repetir a mesma consulta em
+// toda rota, clique e atualização do painel. Em caso de falha, a Promise é
+// removida para permitir uma nova tentativa.
+const globalForBusiness = globalThis as unknown as {
+  jfDefaultBusinessPromise?: Promise<DefaultBusinessIdentity>;
+};
+
+async function loadDefaultBusinessIdentity(): Promise<DefaultBusinessIdentity> {
+  const business = await prisma.business.findFirst({
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, name: true, timezone: true },
+  });
+  if (!business) {
+    throw new Error(
+      'Nenhum negócio encontrado no banco. Rode "npm run db:seed" para criar os dados de demonstração.'
+    );
+  }
+  return business;
+}
+
+export async function getDefaultBusinessIdentity(): Promise<DefaultBusinessIdentity> {
+  globalForBusiness.jfDefaultBusinessPromise ??= loadDefaultBusinessIdentity();
+  try {
+    return await globalForBusiness.jfDefaultBusinessPromise;
+  } catch (error) {
+    delete globalForBusiness.jfDefaultBusinessPromise;
+    throw error;
+  }
+}
+
 /**
  * O sistema já nasce com o modelo de dados pronto para multi-negócio
  * (multi-tenant), mas esta primeira versão opera com um único negócio de
@@ -8,13 +45,7 @@ import { prisma } from '@/lib/db';
  * arquivo.
  */
 export async function getDefaultBusinessId(): Promise<string> {
-  const business = await prisma.business.findFirst({ orderBy: { createdAt: 'asc' } });
-  if (!business) {
-    throw new Error(
-      'Nenhum negócio encontrado no banco. Rode "npm run db:seed" para criar os dados de demonstração.'
-    );
-  }
-  return business.id;
+  return (await getDefaultBusinessIdentity()).id;
 }
 
 export interface PublicBusinessInfo {

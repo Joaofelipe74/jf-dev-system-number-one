@@ -78,13 +78,12 @@ export function AgendaView({ professionals, services }: AgendaViewProps) {
     setBlockedTimes(null);
     const from = range.from.toISOString();
     const to = range.to.toISOString();
-    Promise.all([
-      apiFetch<{ appointments: AppointmentDTO[] }>(`/api/appointments?from=${from}&to=${to}`),
-      apiFetch<{ blockedTimes: BlockedTimeDTO[] }>(`/api/blocked-times?from=${from}&to=${to}`),
-    ])
-      .then(([a, b]) => {
-        setAppointments(a.appointments);
-        setBlockedTimes(b.blockedTimes);
+    apiFetch<{ appointments: AppointmentDTO[]; blockedTimes: BlockedTimeDTO[] }>(
+      `/api/agenda?from=${from}&to=${to}`
+    )
+      .then((data) => {
+        setAppointments(data.appointments);
+        setBlockedTimes(data.blockedTimes);
       })
       .catch(() => showToast('error', 'Não foi possível carregar a agenda.'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
